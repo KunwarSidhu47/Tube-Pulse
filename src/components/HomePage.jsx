@@ -111,11 +111,50 @@ const VideoCard = ({ video, isShort }) => {
   );
 };
 
+// Helper for relative time
+const timeAgo = (dateInput) => {
+  const date = new Date(dateInput);
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
+  return `${Math.floor(months / 12)} year${Math.floor(months / 12) !== 1 ? 's' : ''} ago`;
+};
+
 // --- Main Component ---
 export default function HomePage() {
   const [channelName, setChannelName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Recent searches state
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  // Function to fetch recent searches
+  const fetchRecentSearches = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/recent-searches`);
+      if (response.ok) {
+        const data = await response.json();
+        setRecentSearches(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch recent searches:', err);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentSearches();
+  }, []);
   
   // State for the new nested backend response
   const [channelData, setChannelData] = useState(null);
@@ -154,7 +193,7 @@ export default function HomePage() {
 
     const timerId = setTimeout(async () => {
       try {
-        const response = await fetch(`https://tube-pulse.onrender.com/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
+        const response = await fetch(`http://localhost:5000/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
           signal: abortController.signal
         });
         if (response.ok) {
@@ -210,7 +249,7 @@ export default function HomePage() {
 
     try {
       lastSearchedRef.current = trimmedQuery; // Update last searched query
-      const response = await fetch(`https://tube-pulse.onrender.com/api/channel/${encodeURIComponent(trimmedQuery)}`);
+      const response = await fetch(`http://localhost:5000/api/channel/${encodeURIComponent(trimmedQuery)}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -223,6 +262,7 @@ export default function HomePage() {
       setLatestShorts(data.shorts || []);
       
       setChannelName(query); // Update input to match the searched query
+      fetchRecentSearches(); // Refresh recent searches after a successful search
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to connect to the server');
@@ -306,6 +346,29 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {/* Recent Searches Section */}
+      {!loadingRecent && recentSearches.length > 0 && (
+        <div className="recent-searches-section">
+          <h2 className="recent-searches-title">Recent Searches</h2>
+          <div className="recent-searches-grid">
+            {recentSearches.map((search, index) => (
+              <div 
+                key={search.channelId || index} 
+                className="recent-search-card"
+                onClick={() => executeSearch(search.channelName)}
+              >
+                <img src={search.thumbnail || '/favicon.svg'} alt={search.channelName} className="recent-search-thumb" />
+                <div className="recent-search-info">
+                  <h3>{search.channelName}</h3>
+                  <p>{search.subscribers ? Number(search.subscribers).toLocaleString() : 0} subscribers</p>
+                  <small>{timeAgo(search.searchedAt)}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="results-section">
         {loading && (
