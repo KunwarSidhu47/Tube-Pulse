@@ -1,16 +1,63 @@
-# React + Vite
+# Tube Pulse 🚀
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Tube Pulse is a modern, high-performance YouTube channel analyzer built with a React frontend and an Express/Node.js backend. It leverages the YouTube Data API v3 to provide deep insights, recent trends, and performance metrics for any YouTube creator.
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Deep Channel Analytics:** Calculates custom Creator Scores, Engagement Rates, and Upload Consistency.
+- **Content Insights:** Extracts trending keywords and emoji usage from recent video titles using semantic processing.
+- **Shorts vs Videos Detection:** Automatically categorizes content by parsing ISO 8601 duration timestamps.
+- **Blazing Fast Search:** Features a debounced autocomplete search bar equipped with aggressive in-memory frontend and backend caching to save API quota.
+- **High-Resolution Fallbacks:** Bypasses blurry API thumbnails by actively querying undocumented YouTube CDN endpoints (e.g., `maxresdefault.jpg`) with a cascading graceful degradation system.
+- **Premium Glassmorphic UI:** Features a sleek, responsive dark mode interface built with custom CSS and smooth micro-animations.
 
-## React Compiler
+## 🛠 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React, Vite, Recharts (for data visualization)
+- **Backend:** Node.js, Express
+- **API:** YouTube Data API v3
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prerequisites
+You will need Node.js installed and a YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/).
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/KunwarSidhu47/tube-pulse.git
+   cd tube-pulse
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**
+   Create a `.env` file in the root directory and add your API key:
+   ```env
+   YOUTUBE_API_KEY=your_api_key_here
+   ```
+
+4. **Start the Development Servers**
+   You will need two terminal windows.
+   
+   Start the backend server (runs on port 5000):
+   ```bash
+   node server.js
+   ```
+   
+   Start the frontend React app:
+   ```bash
+   npm run dev
+   ```
+
+## 🧠 Engineering Highlights
+
+- **Quota Optimization:** Implemented a multi-layered caching system (React `useRef` + Node.js `Map`) and `AbortController` request cancellation, dropping duplicate API search costs to 0 quota units.
+- **Data Engineering:** Developed a local "Recent Trends Engine" to calculate upload gaps and parse semantics without exhausting pagination limits.
+
+## 📄 License
+This project is open source and available under the MIT License.
