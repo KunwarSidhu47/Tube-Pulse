@@ -1,5 +1,7 @@
 # Tube Pulse
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-View_App-success?style=for-the-badge&logo=vercel)](https://tube-pulse.vercel.app/)
+
 Tube Pulse is a high-performance YouTube channel analysis application engineered with a React frontend and an Express/Node.js backend. The platform interfaces directly with the YouTube Data API v3 to provide users with deep statistical insights, semantic content analysis, and performance metrics for any YouTube creator.
 
 ---
