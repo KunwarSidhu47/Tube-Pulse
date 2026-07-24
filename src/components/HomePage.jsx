@@ -154,7 +154,7 @@ export default function HomePage() {
 
     const timerId = setTimeout(async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
+        const response = await fetch(`https://tube-pulse.onrender.com/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
           signal: abortController.signal
         });
         if (response.ok) {
@@ -210,7 +210,7 @@ export default function HomePage() {
 
     try {
       lastSearchedRef.current = trimmedQuery; // Update last searched query
-      const response = await fetch(`http://localhost:5000/api/channel/${encodeURIComponent(trimmedQuery)}`);
+      const response = await fetch(`https://tube-pulse.onrender.com/api/channel/${encodeURIComponent(trimmedQuery)}`);
       const data = await response.json();
 
       if (!response.ok) {
