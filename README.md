@@ -1,4 +1,4 @@
-# Tube Pulse 🚀
+# Tube Pulse 📈
 
 Tube Pulse is a modern, high-performance YouTube channel analyzer built with a React frontend and an Express/Node.js backend. It leverages the YouTube Data API v3 to provide deep insights, recent trends, and performance metrics for any YouTube creator.
 
