@@ -83,9 +83,9 @@ export default function AnalyticsDashboard({ channelData, latestVideos, latestSh
     });
 
     const count = allItems.length;
-    const avgViews = totalViews / count;
-    const avgLikes = totalLikes / count;
-    const avgComments = totalComments / count;
+    const avgViews = Math.round(totalViews / count);
+    const avgLikes = Math.round(totalLikes / count);
+    const avgComments = Math.round(totalComments / count);
     const engagementRate = totalViews > 0 ? ((totalLikes + totalComments) / totalViews) * 100 : 0;
     
     const avgDuration = videoCountForDuration > 0 ? totalDurationVideos / videoCountForDuration : 0;
