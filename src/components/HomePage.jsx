@@ -264,7 +264,7 @@ export default function HomePage() {
   return (
     <div className="home-container">
       <div className="search-section">
-        <h1 className="title">YouTube Analyzer</h1>
+        <h1 className="title">Tube Pulse</h1>
         <p className="subtitle">Discover channel insights instantly</p>
         
         <div className="search-container" ref={searchContainerRef}>
