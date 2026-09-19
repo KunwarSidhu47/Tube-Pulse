@@ -121,7 +121,7 @@ export default function HomePage() {
   // Function to fetch recent searches
   const fetchRecentSearches = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/recent-searches`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/recent-searches`);
       if (response.ok) {
         const data = await response.json();
         setRecentSearches(data);
@@ -138,7 +138,7 @@ export default function HomePage() {
 
     const loadRecentSearches = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/recent-searches`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/recent-searches`);
         if (response.ok && isActive) {
           setRecentSearches(await response.json());
         }
@@ -190,7 +190,7 @@ export default function HomePage() {
 
     const timerId = setTimeout(async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
           signal: abortController.signal
         });
         if (response.ok) {
@@ -246,7 +246,7 @@ export default function HomePage() {
 
     try {
       lastSearchedRef.current = trimmedQuery; // Update last searched query
-      const response = await fetch(`http://localhost:5000/api/channel/${encodeURIComponent(trimmedQuery)}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channel/${encodeURIComponent(trimmedQuery)}`);
       const data = await response.json();
 
       if (!response.ok) {
