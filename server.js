@@ -1,9 +1,11 @@
-// Import the dotenv module to load environment variables from a .env file
 import dotenv from 'dotenv';
 // Import the express module
 import express from 'express';
 // Import the cors module
 import cors from 'cors';
+// Import the database connection module
+import connectDB from './config/db.js';
+import { saveSearch, getRecentSearches } from './services/searchHistoryService.js';
 
 // Load environment variables from the .env file into process.env
 dotenv.config();
@@ -35,13 +37,25 @@ const parseISODuration = (durationStr) => {
 // --- In-Memory Cache System ---
 const cache = new Map();
 const CACHE_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
+const RECENT_UPLOAD_LIMIT = 20;
+
+// This process-local telemetry makes cache savings measurable during a server run.
+// Costs are intentionally configurable because YouTube quota policies can change.
+const quotaMetrics = {
+  upstreamRequests: 0,
+  cacheHits: 0,
+  estimatedQuotaUsed: 0,
+  estimatedQuotaAvoided: 0,
+};
 
 // Helper to fetch from YouTube with caching and unified logging
-const fetchYouTube = async (url, endpointName, cacheKey) => {
+const fetchYouTube = async (url, endpointName, cacheKey, quotaCost = 1) => {
   if (cache.has(cacheKey)) {
     const cachedItem = cache.get(cacheKey);
     if (Date.now() - cachedItem.timestamp < CACHE_EXPIRATION_MS) {
       console.log(`[Cache Hit] ${endpointName}`);
+      quotaMetrics.cacheHits += 1;
+      quotaMetrics.estimatedQuotaAvoided += quotaCost;
       return cachedItem.data;
     } else {
       cache.delete(cacheKey);
@@ -49,6 +63,8 @@ const fetchYouTube = async (url, endpointName, cacheKey) => {
   }
 
   console.log(`[YouTube API] ${endpointName}`);
+  quotaMetrics.upstreamRequests += 1;
+  quotaMetrics.estimatedQuotaUsed += quotaCost;
   const response = await fetch(url);
   
   if (!response.ok) {
@@ -127,7 +143,7 @@ app.get('/api/channel/:channelName', async (req, res) => {
       return res.status(404).json({ error: 'Uploads playlist not found for this channel' });
     }
 
-    const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=15&key=${apiKey}`;
+    const playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=${RECENT_UPLOAD_LIMIT}&key=${apiKey}`;
     const playlistData = await fetchYouTube(playlistUrl, 'playlistItems.list', `playlist:${uploadsPlaylistId}`);
     
     const videoIds = (playlistData.items || []).map(item => item.contentDetails?.videoId).filter(Boolean);
@@ -173,9 +189,9 @@ app.get('/api/channel/:channelName', async (req, res) => {
           };
         });
 
-        // Split into videos and shorts, limiting to 5 each
-      finalVideos = allFetchedVideos.filter(v => v.type === 'video').slice(0, 5);
-      finalShorts = allFetchedVideos.filter(v => v.type === 'short').slice(0, 5);
+      // Preserve the complete recent sample for dashboard analysis and the UI.
+      finalVideos = allFetchedVideos.filter(v => v.type === 'video');
+      finalShorts = allFetchedVideos.filter(v => v.type === 'short');
     }
 
     // Step 5: Format the final response with channel, videos, and shorts separately
@@ -184,6 +200,9 @@ app.get('/api/channel/:channelName', async (req, res) => {
       videos: finalVideos,
       shorts: finalShorts
     };
+
+    // Save to search history (fire and forget to not block response)
+    saveSearch(channelInfo);
 
     // Return the combined response
     res.json(finalResponse);
@@ -199,6 +218,31 @@ app.get('/api/channel/:channelName', async (req, res) => {
     
     res.status(500).json({ error: 'Internal server error while fetching channel details' });
   }
+});
+
+// Create a GET route to fetch recent searches
+app.get('/api/recent-searches', async (req, res) => {
+  try {
+    const recentSearches = await getRecentSearches();
+    res.json(recentSearches);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Exposes transparent, process-local cache telemetry for monitoring and demos.
+app.get('/api/quota-metrics', (req, res) => {
+  const potentialQuota = quotaMetrics.estimatedQuotaUsed + quotaMetrics.estimatedQuotaAvoided;
+  const cacheSavingsPercent = potentialQuota > 0
+    ? Number(((quotaMetrics.estimatedQuotaAvoided / potentialQuota) * 100).toFixed(2))
+    : 0;
+
+  res.json({
+    ...quotaMetrics,
+    cacheSavingsPercent,
+    cacheTtlMinutes: CACHE_EXPIRATION_MS / 60000,
+    note: 'Metrics reset when this server process restarts and measure server-cache savings only.',
+  });
 });
 
 // Create a GET route to fetch autocomplete suggestions
@@ -265,7 +309,9 @@ app.get('/api/youtube-test', (req, res) => {
   }
 });
 
-// Start the server and listen on the defined port
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// Connect to MongoDB and then start the server
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 });

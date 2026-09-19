@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './HomePage.css';
 import AnalyticsDashboard from './AnalyticsDashboard';
 
@@ -14,29 +14,26 @@ const formatNumber = (num) => {
   return formatter.format(n);
 };
 
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const options = { year: 'numeric', month: 'short', day: 'numeric' };
-  return new Date(dateString).toLocaleDateString(undefined, options);
-};
-
 const timeAgo = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now - date) / 1000);
-  
-  let interval = seconds / 31536000;
-  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " year ago" : " years ago");
-  interval = seconds / 2592000;
-  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " month ago" : " months ago");
-  interval = seconds / 86400;
-  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " day ago" : " days ago");
-  interval = seconds / 3600;
-  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " hour ago" : " hours ago");
-  interval = seconds / 60;
-  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " min ago" : " mins ago");
-  return "Just now";
+  if (isNaN(date)) return '';
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 0) return 'Just now';
+
+  const intervals = [
+    { label: 'year', secs: 31536000 },
+    { label: 'month', secs: 2592000 },
+    { label: 'day', secs: 86400 },
+    { label: 'hour', secs: 3600 },
+    { label: 'min', secs: 60 },
+  ];
+
+  for (const { label, secs } of intervals) {
+    const count = Math.floor(seconds / secs);
+    if (count >= 1) return `${count} ${label}${count > 1 ? 's' : ''} ago`;
+  }
+  return 'Just now';
 };
 
 const formatDuration = (seconds) => {
@@ -44,7 +41,7 @@ const formatDuration = (seconds) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  
+
   if (h > 0) {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
@@ -55,18 +52,18 @@ const formatDuration = (seconds) => {
 const VideoCard = ({ video, isShort }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [thumbIndex, setThumbIndex] = useState(0);
-  
-  const thumbnails = Array.isArray(video.thumbnails) && video.thumbnails.length > 0 
-    ? video.thumbnails 
+
+  const thumbnails = Array.isArray(video.thumbnails) && video.thumbnails.length > 0
+    ? video.thumbnails
     : [video.thumbnail];
 
   return (
     <div className={`video-card ${isShort ? 'short-card' : ''}`}>
       <div className="video-thumbnail-container">
         {!imageLoaded && <div className="skeleton skeleton-thumbnail"></div>}
-        <img 
-          src={thumbnails[thumbIndex]} 
-          alt={video.title} 
+        <img
+          src={thumbnails[thumbIndex]}
+          alt={video.title}
           className={`video-thumbnail ${imageLoaded ? 'loaded' : ''}`}
           onLoad={() => setImageLoaded(true)}
           onError={() => {
@@ -79,31 +76,31 @@ const VideoCard = ({ video, isShort }) => {
       </div>
       <div className="video-info">
         <h4 className="video-title" title={video.title}>{video.title}</h4>
-        
+
         <div className="video-stats-row">
           <span className="stat-item" title={`${video.viewCount} views`}>
-            <svg viewBox="0 0 24 24" className="icon"><path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            <svg viewBox="0 0 24 24" className="icon"><path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" /></svg>
             {formatNumber(video.viewCount)}
           </span>
           {video.likeCount && video.likeCount !== "0" && (
             <span className="stat-item" title={`${video.likeCount} likes`}>
-              <svg viewBox="0 0 24 24" className="icon"><path fill="currentColor" d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+              <svg viewBox="0 0 24 24" className="icon"><path fill="currentColor" d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" /></svg>
               {formatNumber(video.likeCount)}
             </span>
           )}
         </div>
-        
+
         <div className="video-date-row">
           <span className="video-relative-date">{timeAgo(video.publishedDate)}</span>
         </div>
-        
-        <a 
-          href={`https://www.youtube.com/watch?v=${video.videoId}`} 
-          target="_blank" 
+
+        <a
+          href={`https://www.youtube.com/watch?v=${video.videoId}`}
+          target="_blank"
           rel="noopener noreferrer"
           className="watch-button"
         >
-          <svg viewBox="0 0 24 24" className="play-icon" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg viewBox="0 0 24 24" className="play-icon" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
           Watch on YouTube
         </a>
       </div>
@@ -111,28 +108,12 @@ const VideoCard = ({ video, isShort }) => {
   );
 };
 
-// Helper for relative time
-const timeAgo = (dateInput) => {
-  const date = new Date(dateInput);
-  const seconds = Math.floor((new Date() - date) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
-  return `${Math.floor(months / 12)} year${Math.floor(months / 12) !== 1 ? 's' : ''} ago`;
-};
-
 // --- Main Component ---
 export default function HomePage() {
   const [channelName, setChannelName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Recent searches state
   const [recentSearches, setRecentSearches] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
@@ -153,9 +134,27 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    fetchRecentSearches();
+    let isActive = true;
+
+    const loadRecentSearches = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/recent-searches`);
+        if (response.ok && isActive) {
+          setRecentSearches(await response.json());
+        }
+      } catch (err) {
+        console.error('Failed to fetch recent searches:', err);
+      } finally {
+        if (isActive) setLoadingRecent(false);
+      }
+    };
+
+    loadRecentSearches();
+    return () => {
+      isActive = false;
+    };
   }, []);
-  
+
   // State for the new nested backend response
   const [channelData, setChannelData] = useState(null);
   const [latestVideos, setLatestVideos] = useState([]);
@@ -167,7 +166,7 @@ export default function HomePage() {
   const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const searchContainerRef = useRef(null);
-  
+
   // Cache to store previous suggestion results
   const suggestionsCache = useRef({});
   // Ref to track the last searched query to prevent duplicates
@@ -177,8 +176,6 @@ export default function HomePage() {
   useEffect(() => {
     const trimmedQuery = channelName.trim();
     if (!trimmedQuery) {
-      setSuggestions([]);
-      setShowDropdown(false);
       return;
     }
 
@@ -230,7 +227,7 @@ export default function HomePage() {
   const executeSearch = async (query) => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
-    
+
     // Prevent duplicate searches for the same query
     if (trimmedQuery === lastSearchedRef.current) {
       setShowDropdown(false);
@@ -257,10 +254,10 @@ export default function HomePage() {
       }
 
       setChannelData(data.channel);
-      
+
       setLatestVideos(data.videos || []);
       setLatestShorts(data.shorts || []);
-      
+
       setChannelName(query); // Update input to match the searched query
       fetchRecentSearches(); // Refresh recent searches after a successful search
     } catch (err) {
@@ -281,12 +278,12 @@ export default function HomePage() {
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setFocusedSuggestionIndex((prevIndex) => 
+      setFocusedSuggestionIndex((prevIndex) =>
         prevIndex < suggestions.length - 1 ? prevIndex + 1 : 0
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setFocusedSuggestionIndex((prevIndex) => 
+      setFocusedSuggestionIndex((prevIndex) =>
         prevIndex > 0 ? prevIndex - 1 : suggestions.length - 1
       );
     } else if (e.key === 'Enter') {
@@ -306,7 +303,7 @@ export default function HomePage() {
       <div className="search-section">
         <h1 className="title">Tube Pulse</h1>
         <p className="subtitle">Discover channel insights instantly</p>
-        
+
         <div className="search-container" ref={searchContainerRef}>
           <form onSubmit={handleSearchSubmit} className="search-form">
             <input
@@ -315,8 +312,14 @@ export default function HomePage() {
               placeholder="Enter channel name (e.g., mrbeast)"
               value={channelName}
               onChange={(e) => {
-                setChannelName(e.target.value);
-                setShowDropdown(true);
+                const nextValue = e.target.value;
+                setChannelName(nextValue);
+                if (nextValue.trim()) {
+                  setShowDropdown(true);
+                } else {
+                  setSuggestions([]);
+                  setShowDropdown(false);
+                }
               }}
               onKeyDown={handleKeyDown}
               onFocus={() => {
@@ -332,8 +335,8 @@ export default function HomePage() {
           {showDropdown && suggestions.length > 0 && (
             <div className="suggestions-dropdown">
               {suggestions.map((suggestion, index) => (
-                <div 
-                  key={suggestion.channelId || index} 
+                <div
+                  key={suggestion.channelId || index}
                   className={`suggestion-item ${index === focusedSuggestionIndex ? 'active' : ''}`}
                   onClick={() => executeSearch(suggestion.title)}
                   onMouseEnter={() => setFocusedSuggestionIndex(index)}
@@ -353,8 +356,8 @@ export default function HomePage() {
           <h2 className="recent-searches-title">Recent Searches</h2>
           <div className="recent-searches-grid">
             {recentSearches.map((search, index) => (
-              <div 
-                key={search.channelId || index} 
+              <div
+                key={search.channelId || index}
                 className="recent-search-card"
                 onClick={() => executeSearch(search.channelName)}
               >
@@ -392,13 +395,13 @@ export default function HomePage() {
                 <div className="header-gradient"></div>
                 <img src={channelData.thumbnail} alt={channelData.title} className="channel-avatar" />
               </div>
-              
+
               <div className="card-body">
                 <h2 className="channel-title">{channelData.title}</h2>
                 {channelData.customUrl && (
                   <span className="channel-handle">{channelData.customUrl}</span>
                 )}
-                
+
                 <div className="stats-container">
                   <div className="stat-box">
                     <span className="stat-value">{formatNumber(channelData.subscriberCount)}</span>
@@ -419,7 +422,7 @@ export default function HomePage() {
                     {channelData.description || 'No description available for this channel.'}
                   </p>
                   {channelData.description && channelData.description.length > 150 && (
-                    <button 
+                    <button
                       className="read-more-btn"
                       onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                     >
@@ -431,10 +434,10 @@ export default function HomePage() {
             </div>
 
             {/* Analytics Dashboard */}
-            <AnalyticsDashboard 
-              channelData={channelData} 
-              latestVideos={latestVideos} 
-              latestShorts={latestShorts} 
+            <AnalyticsDashboard
+              channelData={channelData}
+              latestVideos={latestVideos}
+              latestShorts={latestShorts}
             />
 
             {/* Latest Videos Section */}
@@ -452,7 +455,7 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-            
+
             {/* Latest Shorts Section */}
             <div className="videos-section">
               <h3 className="section-title">🎬 Latest Shorts</h3>
@@ -468,7 +471,7 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-            
+
           </div>
         )}
       </div>
