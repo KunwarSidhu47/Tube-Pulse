@@ -6,6 +6,8 @@ import cors from 'cors';
 // Import the database connection module
 import connectDB from './config/db.js';
 import { saveSearch, getRecentSearches } from './services/searchHistoryService.js';
+import { snapshotChannel, getChannelHistory, getTrackedChannelIds } from './services/channelHistoryService.js';
+import { generateNicheBlueprint, generateChannelSummary } from './services/llmService.js';
 
 // Load environment variables from the .env file into process.env
 dotenv.config();
@@ -201,8 +203,9 @@ app.get('/api/channel/:channelName', async (req, res) => {
       shorts: finalShorts
     };
 
-    // Save to search history (fire and forget to not block response)
+    // Save to search history + snapshot for daily tracking (both fire-and-forget)
     saveSearch(channelInfo);
+    snapshotChannel(channelInfo);
 
     // Return the combined response
     res.json(finalResponse);
@@ -220,13 +223,50 @@ app.get('/api/channel/:channelName', async (req, res) => {
   }
 });
 
-// Create a GET route to fetch recent searches
+// Get recent searches
 app.get('/api/recent-searches', async (req, res) => {
   try {
     const recentSearches = await getRecentSearches();
     res.json(recentSearches);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get daily view history for a channel (last 30 days)
+app.get('/api/channel-history/:channelId', async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const days = Math.min(parseInt(req.query.days || 30, 10), 90);
+    const history = await getChannelHistory(channelId, days);
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate AI Niche Blueprint for launching/growing a channel in this niche
+app.post('/api/generate-blueprint', async (req, res) => {
+  try {
+    const { channelData, videos, shorts, keywords, stats } = req.body || {};
+    const blueprint = await generateNicheBlueprint(channelData, videos, shorts, keywords, stats);
+    res.json(blueprint);
+  } catch (error) {
+    console.error('Error generating AI blueprint:', error);
+    res.status(500).json({ error: 'Failed to generate AI blueprint' });
+  }
+});
+
+// Endpoint to generate concise AI summary for a channel
+app.post('/api/channel-summary', async (req, res) => {
+  try {
+    const { channelData, channelTitle, videos, shorts } = req.body || {};
+    const targetChannel = channelData || channelTitle;
+    const summary = await generateChannelSummary(targetChannel, videos, shorts);
+    res.json({ summary });
+  } catch (error) {
+    console.error('Error generating AI channel summary:', error);
+    res.status(500).json({ error: 'Failed to generate channel summary' });
   }
 });
 
@@ -309,8 +349,54 @@ app.get('/api/youtube-test', (req, res) => {
   }
 });
 
+// --- Daily Cron: Snapshot all tracked channels at midnight ---
+// Cost: 1 quota unit per tracked channel. Runs every night at 00:05.
+const runDailySnapshot = async () => {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return;
+
+  const trackedIds = await getTrackedChannelIds();
+  if (trackedIds.length === 0) return;
+
+  console.log(`[Cron] Daily snapshot for ${trackedIds.length} tracked channels...`);
+
+  // Batch in groups of 50 (API supports comma-separated IDs)
+  const batchSize = 50;
+  for (let i = 0; i < trackedIds.length; i += batchSize) {
+    const batch = trackedIds.slice(i, i + batchSize);
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${batch.join(',')}&key=${apiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) { console.error('[Cron] API error', res.status); continue; }
+      const data = await res.json();
+      for (const item of (data.items || [])) {
+        await snapshotChannel(item);
+      }
+      console.log(`[Cron] Snapshotted batch of ${batch.length} channels.`);
+    } catch (err) {
+      console.error('[Cron] Batch error:', err.message);
+    }
+  }
+  console.log('[Cron] Daily snapshot complete.');
+};
+
+// Schedule at 00:05 every day
+const scheduleDailySnapshot = () => {
+  const now = new Date();
+  const next = new Date();
+  next.setHours(0, 5, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1); // tomorrow if already past
+  const msUntilNext = next - now;
+  setTimeout(() => {
+    runDailySnapshot();
+    setInterval(runDailySnapshot, 24 * 60 * 60 * 1000); // repeat every 24h
+  }, msUntilNext);
+  console.log(`[Cron] Daily snapshot scheduled — next run in ${Math.round(msUntilNext / 60000)} minutes.`);
+};
+
 // Connect to MongoDB and then start the server
 connectDB().then(() => {
+  scheduleDailySnapshot();
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

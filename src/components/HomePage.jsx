@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import './HomePage.css';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import NichePlaybook from './NichePlaybook';
 
 // --- Helper Functions ---
 const formatNumber = (num) => {
@@ -46,6 +47,26 @@ const formatDuration = (seconds) => {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
   return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+// --- Time filter helper ---
+const TIME_FILTERS = [
+  { key: 'all', label: 'All Time' },
+  { key: '1y', label: 'Last Year' },
+  { key: '3m', label: 'Last 3 Months' },
+  { key: '7d', label: 'Last Week' },
+];
+
+const filterByTime = (items, filter) => {
+  if (filter === 'all') return items;
+  const now = new Date();
+  const cutoffMap = {
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '3m': 90 * 24 * 60 * 60 * 1000,
+    '1y': 365 * 24 * 60 * 60 * 1000,
+  };
+  const cutoff = now.getTime() - cutoffMap[filter];
+  return items.filter(item => new Date(item.publishedDate).getTime() >= cutoff);
 };
 
 // --- Subcomponents ---
@@ -101,7 +122,7 @@ const VideoCard = ({ video, isShort }) => {
           className="watch-button"
         >
           <svg viewBox="0 0 24 24" className="play-icon" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-          Watch on YouTube
+          Watch
         </a>
       </div>
     </div>
@@ -118,6 +139,9 @@ export default function HomePage() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
+  // Time filter for analytics
+  const [timeFilter, setTimeFilter] = useState('all');
+
   // Function to fetch recent searches
   const fetchRecentSearches = async () => {
     try {
@@ -128,8 +152,6 @@ export default function HomePage() {
       }
     } catch (err) {
       console.error('Failed to fetch recent searches:', err);
-    } finally {
-      setLoadingRecent(false);
     }
   };
 
@@ -159,6 +181,27 @@ export default function HomePage() {
   const [channelData, setChannelData] = useState(null);
   const [latestVideos, setLatestVideos] = useState([]);
   const [latestShorts, setLatestShorts] = useState([]);
+  const [channelSummary, setChannelSummary] = useState(null);
+  const [displayedSummary, setDisplayedSummary] = useState('');
+
+  // Typewriter effect for AI Channel Summary
+  useEffect(() => {
+    if (!channelSummary) {
+      setDisplayedSummary('');
+      return;
+    }
+    setDisplayedSummary('');
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index < channelSummary.length) {
+        setDisplayedSummary(channelSummary.slice(0, index + 1));
+        index++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 18);
+    return () => clearInterval(interval);
+  }, [channelSummary]);
 
   // New state variables for autocomplete and expandable description
   const [suggestions, setSuggestions] = useState([]);
@@ -171,11 +214,18 @@ export default function HomePage() {
   const suggestionsCache = useRef({});
   // Ref to track the last searched query to prevent duplicates
   const lastSearchedRef = useRef('');
+  // Ref to suppress suggestions while a search is in flight
+  const isSearchingRef = useRef(false);
 
   // Debounced fetch for suggestions
   useEffect(() => {
     const trimmedQuery = channelName.trim();
     if (!trimmedQuery) {
+      return;
+    }
+
+    // Don't show dropdown if we just completed a search for this exact query
+    if (isSearchingRef.current || trimmedQuery === lastSearchedRef.current) {
       return;
     }
 
@@ -189,6 +239,7 @@ export default function HomePage() {
     const abortController = new AbortController();
 
     const timerId = setTimeout(async () => {
+      if (isSearchingRef.current) return; // Guard inside async too
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/suggestions/${encodeURIComponent(trimmedQuery)}`, {
           signal: abortController.signal
@@ -197,8 +248,10 @@ export default function HomePage() {
           const data = await response.json();
           // Save to cache
           suggestionsCache.current[trimmedQuery] = data;
-          setSuggestions(data);
-          setShowDropdown(true);
+          if (!isSearchingRef.current) {
+            setSuggestions(data);
+            setShowDropdown(true);
+          }
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -228,24 +281,23 @@ export default function HomePage() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
 
-    // Prevent duplicate searches for the same query
-    if (trimmedQuery === lastSearchedRef.current) {
-      setShowDropdown(false);
-      return;
-    }
+    // Flag that we're searching so suggestion effect doesn't reopen dropdown
+    isSearchingRef.current = true;
 
     setLoading(true);
     setError(null);
     setChannelData(null);
     setLatestVideos([]);
     setLatestShorts([]);
-    setShowDropdown(false); // Close dropdown on search
-    setSuggestions([]); // Clear suggestions explicitly
+    setChannelSummary(null);
+    setShowDropdown(false);
+    setSuggestions([]);
     setFocusedSuggestionIndex(-1);
-    setIsDescriptionExpanded(false); // Reset description state
+    setIsDescriptionExpanded(false);
+    setTimeFilter('all'); // Reset time filter on new search
 
     try {
-      lastSearchedRef.current = trimmedQuery; // Update last searched query
+      lastSearchedRef.current = trimmedQuery;
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/channel/${encodeURIComponent(trimmedQuery)}`);
       const data = await response.json();
 
@@ -254,17 +306,34 @@ export default function HomePage() {
       }
 
       setChannelData(data.channel);
-
       setLatestVideos(data.videos || []);
       setLatestShorts(data.shorts || []);
 
-      setChannelName(query); // Update input to match the searched query
-      fetchRecentSearches(); // Refresh recent searches after a successful search
+      setChannelName(query);
+      fetchRecentSearches();
+
+      // Fetch AI Channel Summary
+      fetch(`${import.meta.env.VITE_API_URL}/api/channel-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelData: data.channel, videos: (data.videos || []).map(v => v.title) })
+      })
+      .then(res => res.json())
+      .then(summaryData => {
+        if (summaryData.summary) setChannelSummary(summaryData.summary);
+      })
+      .catch(err => console.error('[HomePage] Summary fetch error:', err));
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to connect to the server');
     } finally {
       setLoading(false);
+      // Keep dropdown closed after search completes
+      setShowDropdown(false);
+      // Clear the searching flag after a short delay so typing again works
+      setTimeout(() => {
+        isSearchingRef.current = false;
+      }, 300);
     }
   };
 
@@ -288,7 +357,7 @@ export default function HomePage() {
       );
     } else if (e.key === 'Enter') {
       if (focusedSuggestionIndex >= 0 && focusedSuggestionIndex < suggestions.length) {
-        e.preventDefault(); // Prevent form submission
+        e.preventDefault();
         const selected = suggestions[focusedSuggestionIndex].title;
         executeSearch(selected);
       }
@@ -297,6 +366,10 @@ export default function HomePage() {
       setFocusedSuggestionIndex(-1);
     }
   };
+
+  // Filtered data for analytics based on selected time filter
+  const filteredVideos = useMemo(() => filterByTime(latestVideos, timeFilter), [latestVideos, timeFilter]);
+  const filteredShorts = useMemo(() => filterByTime(latestShorts, timeFilter), [latestShorts, timeFilter]);
 
   return (
     <div className="home-container">
@@ -314,7 +387,8 @@ export default function HomePage() {
               onChange={(e) => {
                 const nextValue = e.target.value;
                 setChannelName(nextValue);
-                if (nextValue.trim()) {
+                // Only open dropdown if we're not in the middle of / just finished a search
+                if (nextValue.trim() && nextValue.trim() !== lastSearchedRef.current) {
                   setShowDropdown(true);
                 } else {
                   setSuggestions([]);
@@ -323,7 +397,10 @@ export default function HomePage() {
               }}
               onKeyDown={handleKeyDown}
               onFocus={() => {
-                if (suggestions.length > 0) setShowDropdown(true);
+                // Only re-open if input differs from last searched term
+                if (suggestions.length > 0 && channelName.trim() !== lastSearchedRef.current) {
+                  setShowDropdown(true);
+                }
               }}
             />
             <button type="submit" className="search-button" disabled={loading || !channelName.trim()}>
@@ -433,25 +510,50 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Standalone About the Channel Overview Card */}
+            {channelSummary && (
+              <div className="channel-overview-panel">
+                <div className="overview-header">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#c084fc">
+                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                  </svg>
+                  <h3>About the Channel</h3>
+                </div>
+                <div className="overview-body">
+                  <p className="typewriter-text">
+                    {displayedSummary}
+                    {displayedSummary.length < channelSummary.length && (
+                      <span className="typewriter-cursor">|</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Analytics Dashboard */}
             <AnalyticsDashboard
               channelData={channelData}
-              latestVideos={latestVideos}
-              latestShorts={latestShorts}
+              allVideos={latestVideos}
+              allShorts={latestShorts}
+              chartVideos={filteredVideos}
+              chartShorts={filteredShorts}
+              timeFilter={timeFilter}
+              setTimeFilter={setTimeFilter}
+              totalItems={filteredVideos.length + filteredShorts.length}
             />
 
             {/* Latest Videos Section */}
             <div className="videos-section">
               <h3 className="section-title">📹 Latest Videos</h3>
-              {latestVideos.length > 0 ? (
-                <div className="videos-grid">
-                  {latestVideos.map((video, index) => (
+              {filteredVideos.length > 0 ? (
+                <div className="videos-row">
+                  {filteredVideos.map((video, index) => (
                     <VideoCard key={video.videoId || index} video={video} />
                   ))}
                 </div>
               ) : (
                 <div className="no-videos-message">
-                  <p>No recent videos found for this channel.</p>
+                  <p>No videos found for this time range.</p>
                 </div>
               )}
             </div>
@@ -459,18 +561,25 @@ export default function HomePage() {
             {/* Latest Shorts Section */}
             <div className="videos-section">
               <h3 className="section-title">🎬 Latest Shorts</h3>
-              {latestShorts.length > 0 ? (
-                <div className="videos-grid">
-                  {latestShorts.map((short, index) => (
+              {filteredShorts.length > 0 ? (
+                <div className="videos-row shorts-row">
+                  {filteredShorts.map((short, index) => (
                     <VideoCard key={short.videoId || index} video={short} isShort={true} />
                   ))}
                 </div>
               ) : (
                 <div className="no-videos-message">
-                  <p>No recent shorts found for this channel.</p>
+                  <p>No shorts found for this time range.</p>
                 </div>
               )}
             </div>
+
+            {/* AI Creator Playbook & Niche Growth Blueprint (After Shorts) */}
+            <NichePlaybook
+              channelData={channelData}
+              latestVideos={latestVideos}
+              latestShorts={latestShorts}
+            />
 
           </div>
         )}
