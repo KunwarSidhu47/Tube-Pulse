@@ -7,7 +7,7 @@ import cors from 'cors';
 import connectDB from './config/db.js';
 import { saveSearch, getRecentSearches } from './services/searchHistoryService.js';
 import { snapshotChannel, getChannelHistory, getTrackedChannelIds } from './services/channelHistoryService.js';
-import { generateNicheBlueprint, generateChannelSummary } from './services/llmService.js';
+import { generateNicheBlueprint, generateChannelSummary, evaluateTitleScore } from './services/llmService.js';
 
 // Load environment variables from the .env file into process.env
 dotenv.config();
@@ -267,6 +267,18 @@ app.post('/api/channel-summary', async (req, res) => {
   } catch (error) {
     console.error('Error generating AI channel summary:', error);
     res.status(500).json({ error: 'Failed to generate channel summary' });
+  }
+});
+
+// Endpoint to evaluate and score video titles with AI comparison metrics
+app.post('/api/evaluate-title', async (req, res) => {
+  try {
+    const { draftTitle, channelData } = req.body || {};
+    const result = await evaluateTitleScore(draftTitle, channelData);
+    res.json(result);
+  } catch (error) {
+    console.error('Error evaluating title score:', error);
+    res.status(500).json({ error: 'Failed to evaluate video title score' });
   }
 });
 

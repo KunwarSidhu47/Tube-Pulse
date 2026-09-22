@@ -567,3 +567,203 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+/**
+ * Evaluates a draft video title against key viral metrics and generates
+ * 3 optimized title recommendations with metric score comparison data.
+ */
+export const evaluateTitleScore = async (draftTitle, channelContext = {}) => {
+  const title = (draftTitle || '').trim();
+  if (!title) {
+    return {
+      error: 'Please enter a valid video title.'
+    };
+  }
+
+  const channelTitle = channelContext?.title || 'YouTube Channel';
+  const geminiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== ''
+    ? process.env.GEMINI_API_KEY.trim()
+    : null;
+
+  if (geminiKey) {
+    try {
+      const prompt = `You are a YouTube Click-Through-Rate (CTR) & Title Optimization Specialist.
+Analyze the following draft YouTube video title for a video in the "${channelTitle}" niche.
+
+DRAFT TITLE TO EVALUATE: "${title}"
+
+TASK:
+1. Rate the draft title (0 to 100) across 4 viral metrics:
+   - ctrScore: Estimated clickability & hook strength
+   - curiosityScore: Strength of the curiosity gap / intrigue
+   - clarityScore: Mobile readability & length optimization (6-10 words ideal)
+   - sentimentScore: Emotional power words & trigger strength
+   - overallScore: Weighted average overall score
+2. Generate 3 AI-Optimized Title Variations for this video with improved scores.
+3. Provide 2-3 quick bullet points of actionable feedback.
+
+Return ONLY valid JSON (no markdown formatting) using this exact schema:
+{
+  "draftTitle": "${title.replace(/"/g, '\\"')}",
+  "originalMetrics": {
+    "ctrScore": 65,
+    "curiosityScore": 55,
+    "clarityScore": 80,
+    "sentimentScore": 60,
+    "overallScore": 65
+  },
+  "recommendedTitles": [
+    {
+      "title": "Optimized Title Variation 1",
+      "metrics": {
+        "ctrScore": 90,
+        "curiosityScore": 92,
+        "clarityScore": 85,
+        "sentimentScore": 88,
+        "overallScore": 89
+      },
+      "whyBetter": "Explains why this title performs better"
+    },
+    {
+      "title": "Optimized Title Variation 2",
+      "metrics": {
+        "ctrScore": 88,
+        "curiosityScore": 89,
+        "clarityScore": 90,
+        "sentimentScore": 85,
+        "overallScore": 88
+      },
+      "whyBetter": "Explains why this title performs better"
+    },
+    {
+      "title": "Optimized Title Variation 3",
+      "metrics": {
+        "ctrScore": 85,
+        "curiosityScore": 87,
+        "clarityScore": 92,
+        "sentimentScore": 84,
+        "overallScore": 87
+      },
+      "whyBetter": "Explains why this title performs better"
+    }
+  ],
+  "feedback": [
+    "Feedback point 1",
+    "Feedback point 2"
+  ]
+}`;
+
+      const textResponse = await callGeminiAPI(prompt, geminiKey);
+      if (textResponse) {
+        const parsed = extractJSON(textResponse);
+        if (parsed && parsed.originalMetrics && Array.isArray(parsed.recommendedTitles)) {
+          return { source: 'gemini-llm', ...parsed };
+        }
+      }
+    } catch (err) {
+      console.warn('[LLM Service] Title evaluator LLM call fallback triggered:', err.message);
+    }
+  }
+
+  // --- Rule-Based NLP Fallback Engine for Title Evaluation ---
+  const words = title.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+
+  // Metric Calculation Logic
+  let ctrScore = 60;
+  let curiosityScore = 50;
+  let clarityScore = 75;
+  let sentimentScore = 55;
+
+  // Power Words & Emotional Triggers
+  const powerWordRegex = /\b(survived|secret|truth|hours|free|ultimate|never|worst|best|million|billion|stop|tested|vs|impossible|why|hidden|banned|extreme|every|day|days)\b/i;
+  if (powerWordRegex.test(title)) {
+    curiosityScore += 20;
+    sentimentScore += 20;
+    ctrScore += 15;
+  }
+
+  // Digits / High Stakes Numbers
+  if (/\d+/.test(title)) {
+    ctrScore += 15;
+    curiosityScore += 10;
+  }
+
+  // Length Optimization (6 to 10 words is optimal)
+  if (wordCount >= 6 && wordCount <= 10) {
+    clarityScore = 90;
+    ctrScore += 5;
+  } else if (wordCount < 4 || wordCount > 12) {
+    clarityScore = 55;
+  }
+
+  // Caps / Questions
+  if (title.includes('?')) curiosityScore += 10;
+
+  // Bound scores between 40 and 95
+  const clamp = (val) => Math.min(95, Math.max(40, Math.round(val)));
+  ctrScore = clamp(ctrScore);
+  curiosityScore = clamp(curiosityScore);
+  clarityScore = clamp(clarityScore);
+  sentimentScore = clamp(sentimentScore);
+  const overallScore = Math.round((ctrScore * 0.35) + (curiosityScore * 0.3) + (clarityScore * 0.2) + (sentimentScore * 0.15));
+
+  // Fallback Recommendations based on rules
+  const cleanTitle = title.replace(/[.!?]+$/, '');
+  const rec1Title = `I Tested "${cleanTitle}" for 24 Hours (Extreme Results)`;
+  const rec2Title = `The Untold Truth About ${cleanTitle}`;
+  const rec3Title = `3 Massive Mistakes Everyone Makes With ${cleanTitle}`;
+
+  return {
+    source: 'semantic-nlp-evaluator',
+    draftTitle: title,
+    originalMetrics: {
+      ctrScore,
+      curiosityScore,
+      clarityScore,
+      sentimentScore,
+      overallScore
+    },
+    recommendedTitles: [
+      {
+        title: rec1Title,
+        metrics: {
+          ctrScore: clamp(ctrScore + 22),
+          curiosityScore: clamp(curiosityScore + 25),
+          clarityScore: 88,
+          sentimentScore: clamp(sentimentScore + 20),
+          overallScore: clamp(overallScore + 22)
+        },
+        whyBetter: 'Adds high stakes, personal outcome, and a 24-hour time constraint.'
+      },
+      {
+        title: rec2Title,
+        metrics: {
+          ctrScore: clamp(ctrScore + 18),
+          curiosityScore: clamp(curiosityScore + 28),
+          clarityScore: 92,
+          sentimentScore: clamp(sentimentScore + 15),
+          overallScore: clamp(overallScore + 19)
+        },
+        whyBetter: 'Leverages the Curiosity Gap trigger ("The Untold Truth").'
+      },
+      {
+        title: rec3Title,
+        metrics: {
+          ctrScore: clamp(ctrScore + 16),
+          curiosityScore: clamp(curiosityScore + 20),
+          clarityScore: 85,
+          sentimentScore: clamp(sentimentScore + 22),
+          overallScore: clamp(overallScore + 18)
+        },
+        whyBetter: 'Uses negative framing ("Massive Mistakes") which drives higher CTR.'
+      }
+    ],
+    feedback: [
+      wordCount < 5 ? 'Title is slightly too short; adding stakes or context will boost clickability.' : 'Good word count balance.',
+      !powerWordRegex.test(title) ? 'Consider adding a power word (e.g., Secret, Extreme, Ultimate, Tested) to trigger emotional curiosity.' : 'Great emotional trigger word used.',
+      !/\d+/.test(title) ? 'Titles containing specific numbers or timeframes achieve up to 30% higher CTR.' : 'Numbers/data points detected.'
+    ]
+  };
+};
+
+

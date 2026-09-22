@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import './NichePlaybook.css';
+import TitleScoreAnalyzer from './TitleScoreAnalyzer';
 
 export default function NichePlaybook({ channelData, topKeywords, analyticsStats, latestVideos = [], latestShorts = [] }) {
   const [isCreatorMode, setIsCreatorMode] = useState(false);
@@ -302,6 +303,9 @@ export default function NichePlaybook({ channelData, topKeywords, analyticsStats
           </div>
         )}
       </div>
+
+      {/* AI Title Evaluator & Metric Comparator Component */}
+      <TitleScoreAnalyzer channelData={channelData} />
     </div>
   );
 }
