@@ -1,6 +1,6 @@
 # Tube Pulse
 
-Tube Pulse is an enterprise-grade YouTube channel analytics and AI content intelligence platform engineered with a React frontend and an Express/Node.js backend. The application integrates directly with the YouTube Data API v3 alongside dual Large Language Model (LLM) engines—OpenAI ChatGPT and Google Gemini—to provide deep channel performance metrics, semantic content analysis, and AI-generated niche blueprints.
+Tube Pulse is an enterprise-grade YouTube channel analytics and AI content intelligence platform engineered with a React frontend and an Express/Node.js backend. The application integrates directly with the YouTube Data API v3 alongside Large Language Model (LLM) engines—OpenAI ChatGPT and Google Gemini—to provide deep channel performance metrics, semantic content analysis, AI-generated niche blueprints, and real-time video title virality evaluation.
 
 ---
 
@@ -32,22 +32,26 @@ User Search Input / Autocomplete
                          ├─ MongoDB / Mongoose (Search History Persistence)
                          │
                          ├─ AI Channel Intro Summary
-                         │     └─ OpenAI ChatGPT API (gpt-4o-mini)
+                         │     └─ OpenAI ChatGPT / Gemini API
                          │
-                         └─ AI Niche Blueprint & Creator Insights
-                               └─ Google Gemini API (gemini-3.5-flash-lite)
+                         ├─ AI Niche Blueprint & Creator Insights
+                         │     └─ Google Gemini API (gemini-3.5-flash-lite)
+                         │
+                         └─ AI Title Judge & Recharts Metric Comparator
+                               └─ POST /api/evaluate-title (LLM + Semantic NLP Engine)
 ```
 
 ---
 
 ## Key Features
 
-### 1. Dual-Engine AI Intelligence
-- **Natural Channel Summaries:** Integrates OpenAI ChatGPT (`gpt-4o-mini`) with context enrichment (video titles and channel descriptions) to generate concise, accurate channel bios without template artifacts or niche hallucinations.
+### 1. AI Creator Tools & Intelligence
+- **AI Video Title Judge & Metric Comparator:** Real-time evaluator that benchmarks draft YouTube video titles across 4 viral metrics—**CTR Hook**, **Curiosity Gap**, **Mobile Readability**, and **Emotional Sentiment Power**—with an interactive **Recharts Grouped Bar Chart** comparing draft scores against AI-optimized title alternatives.
 - **AI Niche Blueprint Generator:** Leverages Google Gemini (`gemini-3.5-flash-lite`) to generate 5 original high-CTR video concepts, 0-to-3-second hook scripts, niche hashtags, and viral growth rules tailored to any creator niche.
+- **Natural Channel Summaries:** Integrates OpenAI ChatGPT (`gpt-4o-mini`) and Gemini with context enrichment (video titles and channel descriptions) to generate concise, accurate channel bios.
 
 ### 2. Comprehensive Performance Analytics
-- **Normalized Creator Score:** Multi-factor heuristic rating based on engagement benchmarks, upload consistency, and subscriber-to-view ratios.
+- **Normalized Creator Score:** Multi-factor rating based on engagement benchmarks, upload consistency, and subscriber-to-view ratios.
 - **Engagement & Upload Pattern Matrix:** Interactive Recharts visualizations detailing upload cadence, video vs. Shorts split, weekday/hour posting heatmaps, and title length correlations.
 
 ### 3. High-Efficiency Data Pipeline
@@ -59,7 +63,7 @@ User Search Input / Autocomplete
 
 ## AI & Data Engineering Highlights
 
-- **Dual-LLM Routing & Resilient Fallback Chain:** The backend employs dynamic routing between OpenAI and Google Gemini services. To ensure high availability against API rate limits or model deprecations, Gemini requests utilize a automatic fallback chain (`gemini-3.5-flash-lite` -> `gemini-3.5-flash` -> `gemini-3.6-flash`).
+- **Dual-LLM Routing & Resilient Fallback Chain:** The backend employs dynamic routing between OpenAI and Google Gemini services. To ensure high availability against API rate limits or model deprecations, Gemini requests utilize an automatic fallback chain (`gemini-3.5-flash-lite` -> `gemini-3.5-flash` -> `gemini-3.6-flash`), paired with a deterministic rule-based NLP fallback engine for offline reliability.
 - **Robust JSON Extraction Engine:** To prevent runtime parsing errors from LLM responses containing markdown code blocks or reasoning artifacts, the backend uses regex-based payload extraction (`/\{[\s\S]*\}/`) prior to JSON deserialization.
 - **Context Enrichment & Anti-Hallucination:** Eliminates LLM niche hallucinations for obscure channel names by supplying recent video titles and channel metadata as prompt boundaries.
 - **API Quota Optimization:** Utilizes a process-memory Map cache (10-minute TTL) for YouTube API read operations, reducing redundant search unit costs and providing transparent telemetry via `/api/quota-metrics`.
@@ -73,8 +77,9 @@ User Search Input / Autocomplete
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/channel/:channelName` | Fetches channel profile, recent video uploads, and Shorts classification. |
-| `POST` | `/api/channel-summary` | Generates a concise AI summary via OpenAI ChatGPT. |
+| `POST` | `/api/channel-summary` | Generates a concise AI summary via OpenAI ChatGPT / Gemini. |
 | `POST` | `/api/generate-blueprint` | Generates AI content concepts and viral growth rules via Google Gemini. |
+| `POST` | `/api/evaluate-title` | Evaluates draft video titles across 4 viral metrics & generates Recharts comparison data. |
 | `GET` | `/api/suggestions/:query` | Returns debounced channel autocomplete suggestions. |
 | `GET` | `/api/recent-searches` | Retrieves recent unique search history from MongoDB. |
 | `GET` | `/api/quota-metrics` | Exposes in-memory API cache telemetry and estimated quota savings. |
@@ -89,7 +94,7 @@ User Search Input / Autocomplete
 - MongoDB instance (Local or MongoDB Atlas)
 - YouTube Data API v3 Key
 - OpenAI API Key (for AI Channel Summaries)
-- Google Gemini API Key (for AI Niche Blueprints)
+- Google Gemini API Key (for AI Niche Blueprints & Title Judge)
 
 ### Installation & Configuration
 
